@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -37,7 +38,7 @@ func handleConnect(client net.Conn) {
 	if err != nil {
 		return
 	}
-	log.Println(req.host)
+	log.Println(req.addr)
 
 	target, err := net.DialTimeout("tcp", req.addr, 2*time.Second)
 	if err != nil {
@@ -75,35 +76,33 @@ func relay(left, right net.Conn) (int64, int64) {
 
 // http请求
 type HttpRequest struct {
-	addr    string
 	isHttps bool
+	addr    string
 	data    []byte
-	host    string
-	port    int
 }
 
 // 解析请求
 func parseRequest(client net.Conn) (*HttpRequest, error) {
 
-	var buff = make([]byte, 1024)
-
-	readN, err := client.Read(buff[:])
-	if err != nil {
-		return nil, err
-	}
-	data := buff[:readN]
-
 	var isHttps bool
 	var addr string
+	var buff bytes.Buffer
 
-	for _, line := range strings.Split(string(data), "\r\n") {
-		if strings.HasPrefix(line, "CONNECT") {
-			isHttps = true
-			continue
+	br := bufio.NewReader(client)
+	for {
+		line, err := br.ReadString('\n')
+		if err != nil {
+			return nil, err
 		}
-		if strings.HasPrefix(line, "Host:") {
-			addr = strings.Fields(line)[1]
+		buff.WriteString(line)
+
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
 			break
+		} else if strings.HasPrefix(line, "CONNECT") {
+			isHttps = true
+		} else if strings.HasPrefix(line, "Host:") {
+			addr = strings.Fields(line)[1]
 		}
 	}
 
@@ -115,16 +114,10 @@ func parseRequest(client net.Conn) (*HttpRequest, error) {
 		}
 	}
 
-	addrParts := strings.SplitN(addr, ":", 2)
-	host := addrParts[0]
-	port, _ := strconv.Atoi(addrParts[1])
-
 	request := &HttpRequest{
-		addr:    addr,
 		isHttps: isHttps,
-		data:    data,
-		host:    host,
-		port:    port,
+		addr:    addr,
+		data:    buff.Bytes(),
 	}
 	return request, nil
 }
