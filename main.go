@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -41,6 +40,10 @@ func handleConnect(client net.Conn) {
 	}
 	log.Println(req.addr)
 
+	if req.isHttps {
+		client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
+	}
+
 	target, err := net.DialTimeout("tcp", req.addr, 2*time.Second)
 	if err != nil {
 		return
@@ -48,9 +51,7 @@ func handleConnect(client net.Conn) {
 	defer target.Close()
 	target.(*net.TCPConn).SetKeepAlive(true)
 
-	if req.isHttps {
-		fmt.Fprint(client, "HTTP/1.1 200 Connection Established\r\n\r\n")
-	} else {
+	if !req.isHttps {
 		target.Write(req.data)
 	}
 
