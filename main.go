@@ -33,6 +33,7 @@ func main() {
 // 处理请求
 func handleConnect(client net.Conn) {
 	defer client.Close()
+	client.(*net.TCPConn).SetKeepAlive(true)
 
 	req, err := parseRequest(client)
 	if err != nil {
@@ -45,6 +46,7 @@ func handleConnect(client net.Conn) {
 		return
 	}
 	defer target.Close()
+	target.(*net.TCPConn).SetKeepAlive(true)
 
 	if req.isHttps {
 		fmt.Fprint(client, "HTTP/1.1 200 Connection Established\r\n\r\n")
