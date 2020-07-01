@@ -30,18 +30,14 @@ func main() {
 }
 
 // 处理请求
-func handleConnect(conn net.Conn) {
-	defer conn.Close()
+func handleConnect(client net.Conn) {
+	defer client.Close()
 
-	req, err := parseRequest(conn)
+	req, err := parseRequest(client)
 	if err != nil {
 		return
 	}
 	log.Println(req.host)
-
-	if req.isHttps {
-		fmt.Fprint(conn, "HTTP/1.1 200 Connection Established\r\n\r\n")
-	}
 
 	target, err := net.DialTimeout("tcp", req.addr, 2*time.Second)
 	if err != nil {
@@ -49,14 +45,13 @@ func handleConnect(conn net.Conn) {
 	}
 	defer target.Close()
 
-	if !req.isHttps {
-		_, err = target.Write(req.data)
-		if err != nil {
-			return
-		}
+	if req.isHttps {
+		fmt.Fprint(client, "HTTP/1.1 200 Connection Established\r\n\r\n")
+	} else {
+		target.Write(req.data)
 	}
 
-	relay(req.conn, target)
+	relay(client, target)
 }
 
 // 数据传输
@@ -80,7 +75,6 @@ func relay(left, right net.Conn) (int64, int64) {
 
 // http请求
 type HttpRequest struct {
-	conn    net.Conn
 	addr    string
 	isHttps bool
 	data    []byte
@@ -126,7 +120,6 @@ func parseRequest(client net.Conn) (*HttpRequest, error) {
 	port, _ := strconv.Atoi(addrParts[1])
 
 	request := &HttpRequest{
-		conn:    client,
 		addr:    addr,
 		isHttps: isHttps,
 		data:    data,
