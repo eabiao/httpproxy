@@ -55,25 +55,6 @@ func handleConnect(client net.Conn) {
 	relay(client, target)
 }
 
-// 数据传输
-func relay(left, right net.Conn) (int64, int64) {
-	ch := make(chan int64)
-
-	go func() {
-		reqN, _ := io.Copy(right, left)
-		right.SetDeadline(time.Now())
-		left.SetDeadline(time.Now())
-		ch <- reqN
-	}()
-
-	respN, _ := io.Copy(left, right)
-	right.SetDeadline(time.Now())
-	left.SetDeadline(time.Now())
-	reqN := <-ch
-
-	return reqN, respN
-}
-
 // http请求
 type HttpRequest struct {
 	isHttps bool
@@ -120,4 +101,23 @@ func parseRequest(client net.Conn) (*HttpRequest, error) {
 		data:    buff.Bytes(),
 	}
 	return request, nil
+}
+
+// 数据传输
+func relay(left, right net.Conn) (int64, int64) {
+	ch := make(chan int64)
+
+	go func() {
+		reqN, _ := io.Copy(right, left)
+		right.SetDeadline(time.Now())
+		left.SetDeadline(time.Now())
+		ch <- reqN
+	}()
+
+	respN, _ := io.Copy(left, right)
+	right.SetDeadline(time.Now())
+	left.SetDeadline(time.Now())
+	reqN := <-ch
+
+	return reqN, respN
 }
